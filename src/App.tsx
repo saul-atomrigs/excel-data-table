@@ -35,8 +35,8 @@ const parseCellPosition = (cellRef: string) => {
 };
 
 // 공식 문자열 파싱 함수
-const parseFormula = (formula: string) => {
-  if (!formula.startsWith('=')) return null;
+const parseFormula = (formula: string, starter = '=') => {
+  if (!formula.startsWith(starter)) return null;
 
   const expression = formula.substring(1).trim();
   // 간단한 덧셈 공식 파싱 (예: A1 + B2)
