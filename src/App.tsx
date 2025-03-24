@@ -1,5 +1,5 @@
 import { useScroll } from './hooks';
-import { IntersectionObserver } from './components';
+import { IntersectionObserver } from '@saul-atomrigs/design-system';
 import { useState, useCallback } from 'react';
 import { EditableCell } from './components/editable-cell';
 
