@@ -8,14 +8,12 @@ const TOTAL_COLUMNS = 10; // 총 10개의 컬럼
 const BATCH_SIZE = 100; // 한 번에 불러올 데이터 개수
 
 // 컬럼 헤더 정의
-const COLUMNS = Array.from({ length: TOTAL_COLUMNS }, (_, index) =>
+const baseColumns = Array.from({ length: TOTAL_COLUMNS }, (_, index) =>
   String.fromCharCode(65 + index)
 );
 
 // 행 데이터 생성 함수 - 비어있는 데이터로 초기화
-const generateRowData = () => {
-  return Array.from({ length: TOTAL_COLUMNS }, () => '');
-};
+const baseRows = Array.from({ length: TOTAL_COLUMNS }, () => '');
 
 // 셀 위치를 파싱하는 함수 (예: 'A1' -> { col: 0, row: 0 })
 const parseCellPosition = (cellRef: string) => {
@@ -185,9 +183,8 @@ export default function Table() {
 
   // 행 인덱스를 실제 행 데이터로 변환
   const rows = rowIndices.map((index) => {
-    const baseRowData = generateRowData();
     // 편집된 데이터가 있으면 해당 데이터로 대체
-    return baseRowData.map((_, colIndex) => {
+    return baseRows.map((_, colIndex) => {
       return getCellValue(index, colIndex);
     });
   });
@@ -219,7 +216,7 @@ export default function Table() {
         }}
       >
         <div style={{ width: '100px', paddingLeft: '10px' }}>데이터 번호</div>
-        {COLUMNS.map((column, index) => (
+        {baseColumns.map((column, index) => (
           <div
             key={index}
             style={{
