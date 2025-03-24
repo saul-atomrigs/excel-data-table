@@ -1,6 +1,6 @@
-import { useScroll } from './hooks';
-import { IntersectionObserver } from '@saul-atomrigs/design-system';
 import { useState, useCallback } from 'react';
+import { IntersectionObserver } from '@saul-atomrigs/design-system';
+import { useScroll } from './hooks';
 import { EditableCell } from './components/editable-cell';
 
 const TOTAL_ROWS = 1_000_000; // 총 100만 개의 데이터
