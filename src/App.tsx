@@ -373,7 +373,6 @@ export default function Table() {
     setSelectedCells([]);
   };
 
-  // 선택된 셀인지 확인하는 함수
   const isCellSelected = (rowIndex: number, colIndex: number) => {
     if (!isDragging || !dragStartCell || !dragEndCell) return false;
 
@@ -391,7 +390,6 @@ export default function Table() {
     );
   };
 
-  // 마우스 이벤트 전역 처리
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       if (isDragging) {
@@ -405,9 +403,7 @@ export default function Table() {
     };
   }, [isDragging, dragStartCell, dragEndCell]);
 
-  // 행 인덱스를 실제 행 데이터로 변환
   const rows = rowIndices.map((index) => {
-    // 편집된 데이터가 있으면 해당 데이터로 대체
     return baseRows.map((_, colIndex) => {
       return getCellValue(index, colIndex);
     });
