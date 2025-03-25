@@ -2,12 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { IntersectionObserver, Loading } from '@saul-atomrigs/design-system';
 import { useScroll } from './hooks';
 import { EditableCell } from './components/editable-cell';
+import { Cell, Formula } from './types';
 import './App.css';
-
-type Cell = {
-  row: number;
-  col: number;
-};
 
 const TOTAL_ROWS = 1_000_000;
 const TOTAL_COLUMNS = 10;
@@ -38,12 +34,6 @@ const getCellPosition = (cellRef: string) => {
   const row = parseInt(rowStr);
   return { col, row };
 };
-
-interface Formula {
-  type: 'value' | 'expression';
-  value?: string;
-  parts?: string[];
-}
 
 /**
  * 공식(예: '=A1+B2')을 해석하는 함수
