@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { IntersectionObserver } from '@saul-atomrigs/design-system';
+import { IntersectionObserver, Loading } from '@saul-atomrigs/design-system';
 import { useScroll } from './hooks';
 import { EditableCell } from './components/editable-cell';
+import './App.css';
 
 type Cell = {
   row: number;
@@ -410,63 +411,21 @@ export default function Table() {
   });
 
   return (
-    <div
-      style={{
-        height: '100vh', // 전체 화면 높이
-        width: '100vw', // 전체 화면 너비
-        display: 'flex',
-        flexDirection: 'column',
-        margin: 0,
-        padding: 0,
-        overflow: 'hidden', // 스크롤바 방지
-        position: 'fixed', // 전체 화면 고정
-        top: 0,
-        left: 0,
-      }}
-    >
+    <div className='container'>
       {/* 컬럼 헤더 추가 */}
-      <div
-        style={{
-          height: '40px',
-          backgroundColor: '#f0f0f0',
-          borderBottom: '2px solid #ccc',
-          display: 'flex',
-          alignItems: 'center',
-          fontWeight: 'bold',
-        }}
-      >
-        <div style={{ width: '100px', paddingLeft: '10px' }}>데이터 번호</div>
+      <div className='header'>
+        <div className='header-cell'>데이터 번호</div>
         {baseColumns.map((column, index) => (
-          <div
-            key={index}
-            style={{
-              flex: 1,
-              padding: '0 10px',
-              borderLeft: '1px solid #ccc',
-            }}
-          >
+          <div key={index} className='header-column'>
             {column}
           </div>
         ))}
       </div>
 
-      <main
-        ref={scrollContainerRef}
-        style={{ flex: 1, overflowY: 'auto', border: '1px solid #ccc' }}
-      >
+      <main ref={scrollContainerRef} className='table-container'>
         {rows.map((rowData, rowIndex) => (
-          <div
-            key={rowIndices[rowIndex]}
-            style={{
-              height: '30px',
-              borderBottom: '1px solid #ddd',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <div style={{ width: '100px', paddingLeft: '10px' }}>
-              {rowIndices[rowIndex]}
-            </div>
+          <div key={rowIndices[rowIndex]} className='row'>
+            <div className='row-index'>{rowIndices[rowIndex]}</div>
             {rowData.map((cellData, cellIndex) => (
               <EditableCell
                 key={cellIndex}
@@ -491,7 +450,7 @@ export default function Table() {
           onIntersect={loadMore}
           disabled={!hasMore || isLoading}
         >
-          {isLoading && <div>...</div>}
+          {isLoading && <Loading />}
         </IntersectionObserver>
       </main>
     </div>
