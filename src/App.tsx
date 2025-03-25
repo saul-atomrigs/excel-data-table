@@ -1,7 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { IntersectionObserver } from '@saul-atomrigs/design-system';
 import { useScroll } from './hooks';
 import { EditableCell } from './components/editable-cell';
+
+type Cell = {
+  row: number;
+  col: number;
+} | null;
 
 const TOTAL_ROWS = 1_000_000; // 총 100만 개의 데이터
 const TOTAL_COLUMNS = 10; // 총 10개의 컬럼
@@ -181,6 +186,161 @@ export default function Table() {
     updateDependentCells(key);
   };
 
+  // 드래그 관련 상태
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartCell, setDragStartCell] = useState<Cell>(null);
+  const [dragEndCell, setDragEndCell] = useState<Cell>(null);
+  const [selectedCells, setSelectedCells] = useState<Cell[]>([]);
+
+  // 드래그 시작 핸들러
+  const handleDragStart = (rowIndex: number, colIndex: number) => {
+    setIsDragging(true);
+    setDragStartCell({ row: rowIndices[rowIndex], col: colIndex });
+    setDragEndCell({ row: rowIndices[rowIndex], col: colIndex });
+  };
+
+  // 드래그 중 핸들러
+  const handleDragOver = (rowIndex: number, colIndex: number) => {
+    if (isDragging) {
+      setDragEndCell({ row: rowIndices[rowIndex], col: colIndex });
+    }
+  };
+
+  // 드래그 종료 핸들러
+  const handleDragEnd = () => {
+    if (isDragging && dragStartCell && dragEndCell) {
+      // 선택된 셀 범위 계산
+      const startRow = Math.min(dragStartCell.row, dragEndCell.row);
+      const endRow = Math.max(dragStartCell.row, dragEndCell.row);
+      const startCol = Math.min(dragStartCell.col, dragEndCell.col);
+      const endCol = Math.max(dragStartCell.col, dragEndCell.col);
+
+      const cells = [];
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          cells.push({ row, col });
+        }
+      }
+      setSelectedCells(cells);
+
+      // 시작 셀의 값이나 공식을 다른 선택된 셀들에 적용
+      if (cells.length > 1) {
+        const sourceKey = `${dragStartCell.row}-${dragStartCell.col}`;
+        const sourceValue = editedData[sourceKey] || '';
+
+        // 소스 셀이 공식인 경우, 셀 참조를 조정
+        if (sourceValue.startsWith('=')) {
+          const newEditedData = { ...editedData };
+          const cellsToUpdate: string[] = [];
+
+          cells.forEach(({ row, col }) => {
+            if (row === dragStartCell.row && col === dragStartCell.col) return; // 시작 셀은 건너뛰기
+
+            const rowDiff = row - dragStartCell.row;
+            const colDiff = col - dragStartCell.col;
+
+            // 공식 내의 셀 참조 조정
+            let adjustedFormula = sourceValue;
+            adjustedFormula = adjustedFormula.replace(
+              /([A-Z]+)(\d+)/g,
+              (match, colStr, rowStr) => {
+                const { col: oldCol, row: oldRow } = parseCellPosition(
+                  `${colStr}${rowStr}`
+                );
+                const newCol = oldCol + colDiff;
+                const newRow = oldRow + rowDiff;
+
+                // 컬럼 문자 계산 (0 => A, 1 => B, ...)
+                let newColStr = '';
+                let tempCol = newCol + 1; // 0-based to 1-based
+                while (tempCol > 0) {
+                  const remainder = (tempCol - 1) % 26;
+                  newColStr = String.fromCharCode(65 + remainder) + newColStr;
+                  tempCol = Math.floor((tempCol - 1) / 26);
+                }
+
+                return `${newColStr}${newRow}`;
+              }
+            );
+
+            const targetKey = `${row}-${col}`;
+            newEditedData[targetKey] = adjustedFormula;
+            cellsToUpdate.push(targetKey);
+          });
+
+          setEditedData(newEditedData);
+
+          // 계산된 값 캐시 초기화
+          setCalculatedValues((prev) => {
+            const newValues = { ...prev };
+            cellsToUpdate.forEach((key) => {
+              delete newValues[key];
+            });
+            return newValues;
+          });
+
+          // 새로 복사된 셀들의 계산된 값을 강제로 업데이트
+          // setTimeout을 사용하여 state 업데이트 후 실행되도록 함
+          setTimeout(() => {
+            cellsToUpdate.forEach((key) => {
+              const [row, col] = key.split('-').map(Number);
+              // 계산된 값 갱신을 위해 getCellValue 호출
+              getCellValue(row, col);
+            });
+          }, 0);
+        } else {
+          // 일반 값인 경우 그대로 복사
+          const newEditedData = { ...editedData };
+
+          cells.forEach(({ row, col }) => {
+            if (row === dragStartCell.row && col === dragStartCell.col) return; // 시작 셀은 건너뛰기
+            const targetKey = `${row}-${col}`;
+            newEditedData[targetKey] = sourceValue;
+          });
+
+          setEditedData(newEditedData);
+        }
+      }
+    }
+
+    setIsDragging(false);
+    setDragStartCell(null);
+    setDragEndCell(null);
+    setSelectedCells([]);
+  };
+
+  // 선택된 셀인지 확인하는 함수
+  const isCellSelected = (rowIndex: number, colIndex: number) => {
+    if (!isDragging || !dragStartCell || !dragEndCell) return false;
+
+    const row = rowIndices[rowIndex];
+    const startRow = Math.min(dragStartCell.row, dragEndCell.row);
+    const endRow = Math.max(dragStartCell.row, dragEndCell.row);
+    const startCol = Math.min(dragStartCell.col, dragEndCell.col);
+    const endCol = Math.max(dragStartCell.col, dragEndCell.col);
+
+    return (
+      row >= startRow &&
+      row <= endRow &&
+      colIndex >= startCol &&
+      colIndex <= endCol
+    );
+  };
+
+  // 마우스 이벤트 전역 처리
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        handleDragEnd();
+      }
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, dragStartCell, dragEndCell]);
+
   // 행 인덱스를 실제 행 데이터로 변환
   const rows = rowIndices.map((index) => {
     // 편집된 데이터가 있으면 해당 데이터로 대체
@@ -257,6 +417,12 @@ export default function Table() {
                 onChange={(newValue) =>
                   handleCellChange(rowIndex, cellIndex, newValue)
                 }
+                rowIndex={rowIndex}
+                colIndex={cellIndex}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                isDragging={isCellSelected(rowIndex, cellIndex)}
               />
             ))}
           </div>
