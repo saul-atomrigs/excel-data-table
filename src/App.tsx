@@ -8,9 +8,9 @@ type Cell = {
   col: number;
 } | null;
 
-const TOTAL_ROWS = 1_000_000; // 총 100만 개의 데이터
-const TOTAL_COLUMNS = 10; // 총 10개의 컬럼
-const BATCH_SIZE = 100; // 한 번에 불러올 데이터 개수
+const TOTAL_ROWS = 1_000_000;
+const TOTAL_COLUMNS = 10;
+const BATCH_SIZE = 100;
 
 const baseColumns = Array.from({ length: TOTAL_COLUMNS }, (_, index) =>
   String.fromCharCode(65 + index)
