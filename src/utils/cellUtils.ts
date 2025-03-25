@@ -62,7 +62,7 @@ export const adjustFormulaForCell = (
   const rowDiff = targetCell.row - sourceCell.row;
   const colDiff = targetCell.col - sourceCell.col;
 
-  return formula.replace(/([A-Z]+)(\d+)/g, (match, colStr, rowStr) => {
+  return formula.replace(/([A-Z]+)(\d+)/g, (colStr, rowStr) => {
     const { col: oldCol, row: oldRow } = getCellPosition(`${colStr}${rowStr}`);
     const newCol = oldCol + colDiff;
     const newRow = oldRow + rowDiff;
