@@ -2,12 +2,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { IntersectionObserver, Loading } from '@saul-atomrigs/design-system';
 import { useScroll } from './hooks';
 import { EditableCell } from './components/editable-cell';
+import { BATCH_SIZE, TOTAL_COLUMNS, TOTAL_ROWS } from './constants';
 import { Cell, Formula } from './types';
 import './App.css';
-
-const TOTAL_ROWS = 1_000_000;
-const TOTAL_COLUMNS = 10;
-const BATCH_SIZE = 100;
 
 const baseColumns = Array.from({ length: TOTAL_COLUMNS }, (_, index) =>
   String.fromCharCode(65 + index)
