@@ -44,11 +44,27 @@ const parseFormula = (formula: string, starter = '=') => {
   if (!formula.startsWith(starter)) return null;
 
   const expression = formula.substring(1).trim();
-  // 간단한 덧셈 공식 파싱 (예: A1 + B2)
-  const parts = expression.split('+').map((part) => part.trim());
+
+  const addSubtractParts = expression.split(/([+\-])/).filter(Boolean);
+
+  if (addSubtractParts.length === 1) {
+    const mulDivParts = addSubtractParts[0].split(/([*/])/).filter(Boolean);
+    if (mulDivParts.length === 1) {
+      return {
+        type: 'value',
+        value: mulDivParts[0].trim(),
+      };
+    } else {
+      return {
+        type: 'expression',
+        parts: mulDivParts,
+      };
+    }
+  }
+
   return {
-    operator: '+',
-    operands: parts,
+    type: 'expression',
+    parts: addSubtractParts,
   };
 };
 
@@ -95,24 +111,83 @@ export default function Table() {
         const formula = parseFormula(rawValue);
         if (!formula) return rawValue;
 
-        // 공식의 피연산자들의 값을 가져와 계산
-        let result = 0;
+        // 의존성 추적을 위한 배열
         const newDependencies: string[] = [];
 
-        for (const operand of formula.operands) {
-          if (/^[A-Z]\d+$/.test(operand)) {
-            // 셀 참조인 경우 (예: A1, B2)
-            const { col, row } = parseCellPosition(operand);
-            const depKey = `${row}-${col}`;
-            newDependencies.push(depKey);
+        // 공식 계산 함수
+        const evaluateExpression = (parts: string[]) => {
+          // 곱셈과 나눗셈을 먼저 처리
+          const processMultiplyDivide = () => {
+            let i = 1;
+            while (i < parts.length) {
+              if (parts[i] === '*' || parts[i] === '/') {
+                const leftValue = parseFloat(evaluateOperand(parts[i - 1]));
+                const rightValue = parseFloat(evaluateOperand(parts[i + 1]));
 
-            const value = editedData[depKey] || '';
-            const numValue = value ? parseFloat(value) : 0;
-            result += isNaN(numValue) ? 0 : numValue;
-          } else {
-            // 숫자인 경우
-            result += parseFloat(operand) || 0;
+                let result;
+                if (parts[i] === '*') {
+                  result = leftValue * rightValue;
+                } else {
+                  // 0으로 나누기 처리
+                  if (rightValue === 0) {
+                    throw new Error('Division by zero');
+                  }
+                  result = leftValue / rightValue;
+                }
+
+                // 계산 결과로 배열 요소 대체
+                parts.splice(i - 1, 3, result.toString());
+                i--;
+              }
+              i += 2;
+            }
+          };
+
+          // 개별 피연산자 평가
+          const evaluateOperand = (operand: string) => {
+            operand = operand.trim();
+            if (/^[A-Z]+\d+$/.test(operand)) {
+              // 셀 참조인 경우 (예: A1, B2)
+              const { col, row } = parseCellPosition(operand);
+              const depKey = `${row}-${col}`;
+              newDependencies.push(depKey);
+
+              const value = editedData[depKey] || '';
+              // 숫자가 아니라면 0으로 처리
+              return value && !isNaN(parseFloat(value)) ? value : '0';
+            }
+            return operand; // 숫자 그대로 반환
+          };
+
+          // 연산자 우선순위대로 계산
+          // 1. 곱셈과 나눗셈 먼저 처리
+          processMultiplyDivide();
+
+          // 2. 덧셈과 뺄셈 처리
+          let result = parseFloat(evaluateOperand(parts[0]));
+          for (let i = 1; i < parts.length; i += 2) {
+            const operator = parts[i];
+            const operand = evaluateOperand(parts[i + 1]);
+            const value = parseFloat(operand);
+
+            if (operator === '+') {
+              result += value;
+            } else if (operator === '-') {
+              result -= value;
+            }
           }
+
+          return result.toString();
+        };
+
+        let result;
+
+        if (formula.type === 'value') {
+          // 단일 값 또는 셀 참조
+          result = evaluateOperand(formula.value);
+        } else {
+          // 복합 표현식
+          result = evaluateExpression(formula.parts);
         }
 
         // 의존성 업데이트
@@ -122,13 +197,12 @@ export default function Table() {
         }));
 
         // 계산된 값 캐싱
-        const calculated = result.toString();
         setCalculatedValues((prev) => ({
           ...prev,
-          [key]: calculated,
+          [key]: result,
         }));
 
-        return calculated;
+        return result;
       } catch (error) {
         console.error('Formula evaluation error:', error);
         return `Error: ${error}`;
