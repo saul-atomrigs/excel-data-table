@@ -6,7 +6,7 @@ import { EditableCell } from './components/editable-cell';
 type Cell = {
   row: number;
   col: number;
-} | null;
+};
 
 const TOTAL_ROWS = 1_000_000;
 const TOTAL_COLUMNS = 10;
@@ -201,15 +201,12 @@ export default function Table() {
     [editedData, calculatedValues]
   );
 
-  // 의존성이 있는 셀 업데이트
   const updateDependentCells = useCallback(
     (changedKey: string) => {
-      // 이 셀에 의존하는 모든 셀 찾기
       const dependentCells = Object.entries(dependencies)
         .filter(([_, deps]) => deps.includes(changedKey))
         .map(([key]) => key);
 
-      // 의존하는 셀들의 계산된 값 초기화
       if (dependentCells.length > 0) {
         setCalculatedValues((prev) => {
           const newValues = { ...prev };
@@ -219,14 +216,12 @@ export default function Table() {
           return newValues;
         });
 
-        // 의존성이 있는 셀들도 재귀적으로 업데이트
         dependentCells.forEach((key) => updateDependentCells(key));
       }
     },
     [dependencies]
   );
 
-  // 셀 값 변경 핸들러
   const handleCellChange = (
     rowIndex: number,
     colIndex: number,
@@ -239,130 +234,135 @@ export default function Table() {
       [key]: newValue,
     }));
 
-    // 계산된 값 초기화
     setCalculatedValues((prev) => {
       const newValues = { ...prev };
       delete newValues[key];
       return newValues;
     });
 
-    // 이 셀에 의존하는 다른 셀들 업데이트
     updateDependentCells(key);
   };
 
-  // 드래그 관련 상태
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStartCell, setDragStartCell] = useState<Cell>(null);
-  const [dragEndCell, setDragEndCell] = useState<Cell>(null);
+  const [dragStartCell, setDragStartCell] = useState<Cell | null>(null);
+  const [dragEndCell, setDragEndCell] = useState<Cell | null>(null);
   const [selectedCells, setSelectedCells] = useState<Cell[]>([]);
 
-  // 드래그 시작 핸들러
   const handleDragStart = (rowIndex: number, colIndex: number) => {
     setIsDragging(true);
     setDragStartCell({ row: rowIndices[rowIndex], col: colIndex });
     setDragEndCell({ row: rowIndices[rowIndex], col: colIndex });
   };
 
-  // 드래그 중 핸들러
   const handleDragOver = (rowIndex: number, colIndex: number) => {
     if (isDragging) {
       setDragEndCell({ row: rowIndices[rowIndex], col: colIndex });
     }
   };
 
-  // 드래그 종료 핸들러
+  const getSelectedCells = (startCell: Cell, endCell: Cell) => {
+    const startRow = Math.min(startCell.row, endCell.row);
+    const endRow = Math.max(startCell.row, endCell.row);
+    const startCol = Math.min(startCell.col, endCell.col);
+    const endCol = Math.max(startCell.col, endCell.col);
+
+    const cells = [];
+    for (let row = startRow; row <= endRow; row++) {
+      for (let col = startCol; col <= endCol; col++) {
+        cells.push({ row, col });
+      }
+    }
+    return cells;
+  };
+
+  const adjustFormulaForCell = (
+    formula: string,
+    sourceCell: Cell,
+    targetCell: Cell
+  ) => {
+    const rowDiff = targetCell.row - sourceCell.row;
+    const colDiff = targetCell.col - sourceCell.col;
+
+    return formula.replace(/([A-Z]+)(\d+)/g, (match, colStr, rowStr) => {
+      const { col: oldCol, row: oldRow } = getCellPosition(
+        `${colStr}${rowStr}`
+      );
+      const newCol = oldCol + colDiff;
+      const newRow = oldRow + rowDiff;
+
+      let newColStr = '';
+      let tempCol = newCol + 1;
+      while (tempCol > 0) {
+        const remainder = (tempCol - 1) % 26;
+        newColStr = String.fromCharCode(65 + remainder) + newColStr;
+        tempCol = Math.floor((tempCol - 1) / 26);
+      }
+
+      return `${newColStr}${newRow}`;
+    });
+  };
+
+  const handleFormulaCopy = (
+    cells: Cell[],
+    sourceCell: Cell,
+    sourceValue: string,
+    editedData: Record<string, string>
+  ) => {
+    const newEditedData = { ...editedData };
+    const cellsToUpdate: string[] = [];
+
+    cells.forEach(({ row, col }) => {
+      if (row === sourceCell.row && col === sourceCell.col) return;
+      const targetKey = `${row}-${col}`;
+      newEditedData[targetKey] = adjustFormulaForCell(sourceValue, sourceCell, {
+        row,
+        col,
+      });
+      cellsToUpdate.push(targetKey);
+    });
+
+    setEditedData(newEditedData);
+    setCalculatedValues((prev) => {
+      const newValues = { ...prev };
+      cellsToUpdate.forEach((key) => delete newValues[key]);
+      return newValues;
+    });
+
+    setTimeout(() => {
+      cellsToUpdate.forEach((key) => {
+        const [row, col] = key.split('-').map(Number);
+        getCellValue(row, col);
+      });
+    }, 0);
+  };
+
+  const handleValueCopy = (
+    cells: Cell[],
+    sourceCell: Cell,
+    sourceValue: string,
+    editedData: Record<string, string>
+  ) => {
+    const newEditedData = { ...editedData };
+    cells.forEach(({ row, col }) => {
+      if (row === sourceCell.row && col === sourceCell.col) return;
+      newEditedData[`${row}-${col}`] = sourceValue;
+    });
+    setEditedData(newEditedData);
+  };
+
   const handleDragEnd = () => {
     if (isDragging && dragStartCell && dragEndCell) {
-      // 선택된 셀 범위 계산
-      const startRow = Math.min(dragStartCell.row, dragEndCell.row);
-      const endRow = Math.max(dragStartCell.row, dragEndCell.row);
-      const startCol = Math.min(dragStartCell.col, dragEndCell.col);
-      const endCol = Math.max(dragStartCell.col, dragEndCell.col);
-
-      const cells = [];
-      for (let row = startRow; row <= endRow; row++) {
-        for (let col = startCol; col <= endCol; col++) {
-          cells.push({ row, col });
-        }
-      }
+      const cells = getSelectedCells(dragStartCell, dragEndCell);
       setSelectedCells(cells);
 
-      // 시작 셀의 값이나 공식을 다른 선택된 셀들에 적용
       if (cells.length > 1) {
         const sourceKey = `${dragStartCell.row}-${dragStartCell.col}`;
         const sourceValue = editedData[sourceKey] || '';
 
-        // 소스 셀이 공식인 경우, 셀 참조를 조정
         if (sourceValue.startsWith('=')) {
-          const newEditedData = { ...editedData };
-          const cellsToUpdate: string[] = [];
-
-          cells.forEach(({ row, col }) => {
-            if (row === dragStartCell.row && col === dragStartCell.col) return; // 시작 셀은 건너뛰기
-
-            const rowDiff = row - dragStartCell.row;
-            const colDiff = col - dragStartCell.col;
-
-            // 공식 내의 셀 참조 조정
-            let adjustedFormula = sourceValue;
-            adjustedFormula = adjustedFormula.replace(
-              /([A-Z]+)(\d+)/g,
-              (match, colStr, rowStr) => {
-                const { col: oldCol, row: oldRow } = getCellPosition(
-                  `${colStr}${rowStr}`
-                );
-                const newCol = oldCol + colDiff;
-                const newRow = oldRow + rowDiff;
-
-                // 컬럼 문자 계산 (0 => A, 1 => B, ...)
-                let newColStr = '';
-                let tempCol = newCol + 1; // 0-based to 1-based
-                while (tempCol > 0) {
-                  const remainder = (tempCol - 1) % 26;
-                  newColStr = String.fromCharCode(65 + remainder) + newColStr;
-                  tempCol = Math.floor((tempCol - 1) / 26);
-                }
-
-                return `${newColStr}${newRow}`;
-              }
-            );
-
-            const targetKey = `${row}-${col}`;
-            newEditedData[targetKey] = adjustedFormula;
-            cellsToUpdate.push(targetKey);
-          });
-
-          setEditedData(newEditedData);
-
-          // 계산된 값 캐시 초기화
-          setCalculatedValues((prev) => {
-            const newValues = { ...prev };
-            cellsToUpdate.forEach((key) => {
-              delete newValues[key];
-            });
-            return newValues;
-          });
-
-          // 새로 복사된 셀들의 계산된 값을 강제로 업데이트
-          // setTimeout을 사용하여 state 업데이트 후 실행되도록 함
-          setTimeout(() => {
-            cellsToUpdate.forEach((key) => {
-              const [row, col] = key.split('-').map(Number);
-              // 계산된 값 갱신을 위해 getCellValue 호출
-              getCellValue(row, col);
-            });
-          }, 0);
+          handleFormulaCopy(cells, dragStartCell, sourceValue, editedData);
         } else {
-          // 일반 값인 경우 그대로 복사
-          const newEditedData = { ...editedData };
-
-          cells.forEach(({ row, col }) => {
-            if (row === dragStartCell.row && col === dragStartCell.col) return; // 시작 셀은 건너뛰기
-            const targetKey = `${row}-${col}`;
-            newEditedData[targetKey] = sourceValue;
-          });
-
-          setEditedData(newEditedData);
+          handleValueCopy(cells, dragStartCell, sourceValue, editedData);
         }
       }
     }
