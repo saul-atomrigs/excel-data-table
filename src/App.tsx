@@ -38,7 +38,9 @@ const getCellPosition = (cellRef: string) => {
   return { col, row };
 };
 
-// 공식 문자열 파싱 함수
+/**
+ * 공식(예: '=A1+B2')을 해석하는 함수
+ */
 const parseFormula = (formula: string, starter = '=') => {
   if (!formula.startsWith(starter)) return null;
 
@@ -79,13 +81,10 @@ export default function Table() {
     batchSize: BATCH_SIZE,
   });
 
-  // 편집된 데이터를 저장하는 상태
   const [editedData, setEditedData] = useState<Record<string, string>>({});
-  // 계산된 셀 값을 캐싱하는 상태
   const [calculatedValues, setCalculatedValues] = useState<
     Record<string, string>
   >({});
-  // 셀 의존성 추적
   const [dependencies, setDependencies] = useState<Record<string, string[]>>(
     {}
   );
