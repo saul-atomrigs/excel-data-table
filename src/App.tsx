@@ -12,30 +12,29 @@ const TOTAL_ROWS = 1_000_000; // 총 100만 개의 데이터
 const TOTAL_COLUMNS = 10; // 총 10개의 컬럼
 const BATCH_SIZE = 100; // 한 번에 불러올 데이터 개수
 
-// 컬럼 헤더 정의
 const baseColumns = Array.from({ length: TOTAL_COLUMNS }, (_, index) =>
   String.fromCharCode(65 + index)
 );
 
-// 행 데이터 생성 함수 - 비어있는 데이터로 초기화
 const baseRows = Array.from({ length: TOTAL_COLUMNS }, () => '');
 
-// 셀 위치를 파싱하는 함수 (예: 'A1' -> { col: 0, row: 0 })
-const parseCellPosition = (cellRef: string) => {
+/**
+ * 셀 위치를 파싱하는 함수 (예: 'A1' -> { col: 0, row: 0 })
+ */
+const getCellPosition = (cellRef: string) => {
   const match = cellRef.match(/^([A-Z]+)(\d+)$/);
   if (!match) throw new Error(`Invalid cell reference: ${cellRef}`);
 
   const colStr = match[1];
   const rowStr = match[2];
 
-  // A -> 0, B -> 1, ..., Z -> 25, AA -> 26, ...
   let col = 0;
   for (let i = 0; i < colStr.length; i++) {
     col = col * 26 + (colStr.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
   }
-  col--; // 0-based index
+  col--;
 
-  const row = parseInt(rowStr); // 1-based to 0-based
+  const row = parseInt(rowStr);
   return { col, row };
 };
 
@@ -148,7 +147,7 @@ export default function Table() {
             operand = operand.trim();
             if (/^[A-Z]+\d+$/.test(operand)) {
               // 셀 참조인 경우 (예: A1, B2)
-              const { col, row } = parseCellPosition(operand);
+              const { col, row } = getCellPosition(operand);
               const depKey = `${row}-${col}`;
               newDependencies.push(depKey);
 
@@ -318,7 +317,7 @@ export default function Table() {
             adjustedFormula = adjustedFormula.replace(
               /([A-Z]+)(\d+)/g,
               (match, colStr, rowStr) => {
-                const { col: oldCol, row: oldRow } = parseCellPosition(
+                const { col: oldCol, row: oldRow } = getCellPosition(
                   `${colStr}${rowStr}`
                 );
                 const newCol = oldCol + colDiff;
